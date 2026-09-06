@@ -22,8 +22,8 @@ export default function Login() {
   function selectRole(value) {
     setRole(value)
     setError('')
-    if (value === 'admin') setUsername('jadav')
-    else if (username === 'jadav') setUsername('')
+    if (value === 'admin') setUsername('EDU_project')
+    else if (username === 'EDU_project') setUsername('')
   }
 
   async function handleSubmit(e) {
@@ -139,7 +139,7 @@ export default function Login() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder={role === 'admin' ? 'jadav' : 'username'}
+                  placeholder={role === 'admin' ? 'EDU_project' : 'username'}
                   required
                   autoComplete="username"
                 />
