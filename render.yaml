@@ -20,9 +20,10 @@ services:
         value: educloud-f42a0
       - key: FIREBASE_SERVICE_ACCOUNT_B64
         sync: false
-      # No trailing slash. Only the app's own domain - no frontend URL.
+      # No trailing slash. App's own domain (educloud) + the live Render frontend
+      # origin so browser logins are not blocked by CORS.
       - key: CORS_ORIGINS
-        value: https://educloud.onrender.com
+        value: https://educloud.onrender.com,https://educloude-frontend.onrender.com
       - key: SECRET_KEY
         sync: false
       # Fixed admin account (username: EDU_project / password: EDUcloud@987)
