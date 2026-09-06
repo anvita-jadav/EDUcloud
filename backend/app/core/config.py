@@ -1,4 +1,6 @@
 import os
+import base64
+import json
 import secrets
 from pathlib import Path
 from dotenv import load_dotenv
@@ -37,6 +39,15 @@ def validate_config():
         raise RuntimeError(
             "FIREBASE_PROJECT_ID is not set. Add it to backend/.env (see .env.sample)."
         )
+    if Config.FIREBASE_SERVICE_ACCOUNT_B64:
+        try:
+            json.loads(base64.b64decode(Config.FIREBASE_SERVICE_ACCOUNT_B64))
+        except Exception as exc:
+            raise RuntimeError(
+                "FIREBASE_SERVICE_ACCOUNT_B64 is not valid base64-encoded JSON "
+                f"(decode failed: {exc})."
+            )
+        return
     path = Config.FIREBASE_SERVICE_ACCOUNT_PATH
     if path and not os.path.exists(path):
         raise RuntimeError(
