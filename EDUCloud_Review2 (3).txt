@@ -1,0 +1,453 @@
+PROJECT PHASE-II • REVIEW-I
+
+EDUCloud
+Connected on One Platform.
+Secure Cloud Student Information Management System with Privacy Protection
+
+Department of Computer Science & Engineering
+
+Moodlakatte Institute of Technology, Kundapura
+Presented by:
+Ananya • 4MK23CS010
+
+Anvitha • 4MK23CS017
+
+Ini T V • 4MK23CS042
+
+Shabari • 4MK23CS094
+
+RECAP
+
+Problem Statement
+1
+
+2
+
+3
+
+Institutions still rely on manual or fragmented digital systems for student records, causing redundancy, inconsistency and
+administrative overload.
+
+Cloud adoption improves accessibility and scale — but most existing cloud SIS platforms lack strong authentication, RBAC
+and encryption.
+
+Sensitive academic data needs confidentiality, integrity and controlled access without sacrificing real-time usability.
+
+EDUCloud | Secure Cloud Student Information Management System
+
+2
+
+PHASE 2 UPDATE
+
+Updated Abstract
+EDUCloud is a cloud-based Student Information Management System that centralizes student, faculty and admin
+workflows on one secure platform. Building on Phase-I's analysis and design, Phase-II moves into implementation: the
+
+React.js frontend for all three user roles is now functional, while the Java Spring Boot backend, MySQL database, RBAC
+enforcement and AES/JWT security layer are under active development on AWS infrastructure. The system targets real-
+
+time attendance, results and notification workflows, with encryption, hashing and secure sessions protecting data at rest
+and in transit.
+
+EDUCloud | Secure Cloud Student Information Management System
+
+3
+
+ARCHITECTURE
+
+Cloud-Based System Architecture
+Three-tier design
+Presentation
+React.js frontend on S3 + CloudFront — dashboards, attendance, results, AI chatbot
+
+Application
+Java Spring Boot on EC2 — JWT auth, RBAC, REST APIs, validation, email & QR services
+
+Data
+Amazon RDS (MySQL) — normalized tables for users, students, faculty, attendance, results
+
+Deployment
+AWS: CloudFront (CDN) → S3 (frontend) → EC2 (backend) → RDS (MySQL), with SES for email and OpenAI API for the
+chatbot.
+
+EDUCloud | Secure Cloud Student Information Management System
+
+4
+
+FUNCTIONALITY
+
+Role-Based Modules
+Student
+
+Faculty
+
+Admin
+
+● Register / Login
+
+● Login & dashboard
+
+● Login & dashboard
+
+● Dashboard & profile
+
+● Manage attendance
+
+● Manage students & faculty
+
+● View attendance
+
+● Generate attendance QR
+
+● Manage courses / subjects
+
+● QR attendance check-in
+
+● Manage students
+
+● Manage timetable
+
+● View results
+
+● Enter marks
+
+● View reports
+
+● Notifications
+
+● Send notifications
+
+● AI chatbot
+
+● View reports
+
+EDUCloud | Secure Cloud Student Information Management System
+
+5
+
+PROGRESS
+
+Implementation Status
+FRONTEND — COMPLETED
+
+BACKEND & DATA — IN PROGRESS
+
+•
+
+React.js application built for all three roles
+
+•
+
+Java Spring Boot REST API endpoints
+
+•
+
+Dashboard, profile, attendance & results views
+
+•
+
+MySQL schema on Amazon RDS
+
+•
+
+Faculty attendance & marks-entry screens
+
+•
+
+JWT authentication & RBAC middleware
+
+•
+
+Admin management screens (students, faculty, courses,
+timetable)
+
+•
+
+AES encryption + bcrypt password hashing
+
+•
+
+AWS deployment (EC2, S3, CloudFront, SES)
+
+•
+
+QR scanner, notifications and AI chatbot UI wired up
+
+EDUCloud | Secure Cloud Student Information Management System
+
+6
+
+SECURITY
+
+Security & Privacy Design
+1
+
+2
+
+3
+
+JWT Authentication
+
+Role-Based Access
+
+AES Encryption
+
+Stateless, verified sessions for every request
+
+Student / Faculty / Admin scoped permissions
+
+Sensitive data encrypted at rest
+
+4
+
+5
+
+6
+
+bcrypt / SHA-256
+
+HTTPS / SSL-TLS
+
+Audit Logging (planned)
+
+One-way password hashing — no plaintext storage
+
+Encrypted data in transit
+
+Access & activity tracking for accountability
+
+EDUCloud | Secure Cloud Student Information Management System
+
+7
+
+QUALITY
+
+Testing & Validation Plan
+Functional Testing
+
+Frontend — done
+
+Verify navigation, forms & role dashboards render and behave correctly
+
+Unit / API Testing
+
+Backend — processing
+
+Validate REST endpoints, request/response contracts and error handling
+
+Security Testing
+
+Processing
+
+Verify JWT/RBAC enforcement, AES encryption and injection resistance
+
+Load Testing
+
+Processing
+
+Measure response time and throughput under concurrent user access
+
+Data Integrity Testing
+
+Processing
+
+Confirm consistency of records after create/update/delete operations
+
+EDUCloud | Secure Cloud Student Information Management System
+
+8
+
+EVALUATION
+
+Performance Evaluation Criteria
+To be measured once the backend and database are integrated (Review-II):
+
+1
+
+Response Time
+
+API latency under typical and peak load
+
+4
+
+Data Consistency
+
+Accuracy after synchronized multi-user
+updates
+
+EDUCloud | Secure Cloud Student Information Management System
+
+2
+
+Scalability
+
+Behavior under increasing concurrent users
+
+5
+
+Security Robustness
+
+Resistance to unauthorized access attempts
+
+3
+
+Access Correctness
+
+RBAC boundaries hold across all roles
+
+6
+
+Availability
+
+Uptime and recovery under AWS auto-scaling
+
+9
+
+COMPARISON
+
+Existing Systems vs. EDUCloud
+Criteria
+
+Existing Systems
+
+EDUCloud (Proposed)
+
+Data storage
+
+Manual / isolated files
+
+Centralized on AWS cloud
+
+Access control
+
+Basic login only
+
+JWT + role-based (RBAC)
+
+Encryption
+
+Little or none
+
+AES + HTTPS/SSL
+
+Scalability
+
+Limited, on-premise
+
+Auto-scaling, load-balanced
+
+Real-time sync
+
+Rare, delayed
+
+Instant, cross-role
+
+Monitoring & audit
+
+Minimal or absent
+
+Access logs & activity tracking
+
+Attendance capture
+
+Manual roll-call
+
+QR-based, instant marking
+
+EDUCloud | Secure Cloud Student Information Management System
+
+10
+
+STATUS
+
+Documentation & Publication Status
+Documentation Progress
+
+Publication / Patent
+
+•
+
+•
+
+No publication or patent filed yet
+
+•
+
+Target: submit a paper after performance evaluation results
+(post Review-III)
+
+•
+
+Candidate venues: departmental / national student
+conferences
+
+Phase-I report complete: intro, literature survey,
+methodology
+
+•
+
+System architecture & module-flow diagrams finalized
+
+•
+
+Database schema (ER-level) documented
+
+•
+
+Frontend module documentation in progress
+
+•
+
+Final report / thesis drafting to begin after backend
+integration
+
+EDUCloud | Secure Cloud Student Information Management System
+
+11
+
+REFERENCES
+
+Key References
+▪ Ubamadu et al., “Cloud-Based Higher Education Management Framework: Enhancing Student Administration in U.S. Universities.”
+▪ Hughes, J., “Adoption of Cloud-Based Management Systems in Higher Education Institutions in Asia.”
+
+▪ Chen, W., “Construction of Student Information Management System for Universities Based on Cloud Computing Platform.”
+▪ Wandira, Karanja & Mwangi, “Cloud-Based Student Information Management Systems and Data Security Challenges in Higher Education
+Institutions.”
+▪ Chinnasamy et al., “Secure Student Record Management using Visual Cryptography in Educational Systems.”
+
+▪ Alameri, I. A. & Radchenko, G., “Development of Student Information Management System based on Cloud Computing Platform.”
+
+EDUCloud | Secure Cloud Student Information Management System
+
+12
+
+Where We Are, and What's Next
+Frontend for all three roles is functional and demonstrated. Backend, database, security layer and AWS deployment are the focus
+for the next milestone.
+
+1
+
+Review-II (this stage)
+Frontend demo, 100% UI flows, documentation progress
+
+2
+
+Next 3-4 weeks
+Build & integrate Java Spring Boot APIs with MySQL on RDS
+
+3
+
+Review-III
+Security hardening, performance & load testing, results
+
+4
+
+Final Review
+Complete demonstration, final report, publication draft
+
+EDUCloud | Secure Cloud Student Information Management System
+
+13
+
+
