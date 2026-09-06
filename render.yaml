@@ -20,14 +20,14 @@ services:
         value: educloud-f42a0
       - key: FIREBASE_SERVICE_ACCOUNT_B64
         sync: false
-      # No trailing slash. Replace with your real frontend URL.
+      # No trailing slash. Only the app's own domain - no frontend URL.
       - key: CORS_ORIGINS
-        value: https://educloude-frontend.onrender.com
+        value: https://educloud.onrender.com
       - key: SECRET_KEY
         sync: false
-      # Fixed admin account (username: jadav / password: EDUcloud@987)
+      # Fixed admin account (username: EDU_project / password: EDUcloud@987)
       - key: ADMIN_USERNAME
-        value: jadav
+        value: EDU_project
       - key: ADMIN_PASSWORD
         value: EDUcloud@987
       # Gemini key for the EDUtech AI chatbot (suspended until you for keep a
