@@ -1,15 +1,58 @@
 import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import Toast from '../../components/Toast'
-import { QRCourseCard } from '../../components/QRCourseCard'
+import { QRCodeSVG } from 'qrcode.react'
+
+function toLocalInput(d) {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function fmtClock(ts) {
+  const d = new Date(ts * 1000)
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+}
+
+function useNow(interval = 1000) {
+  const [now, setNow] = useState(0)
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), interval)
+    return () => clearInterval(t)
+  }, [interval])
+  return now
+}
+
+function LiveStatus({ startsAtTs, endsAtTs }) {
+  const now = useNow()
+  if (now === 0) return <span className="badge badge-info">Checking…</span>
+  const startMs = startsAtTs * 1000
+  const endMs = endsAtTs * 1000
+  if (now < startMs) {
+    const left = Math.ceil((startMs - now) / 1000)
+    return <span className="badge badge-info">Starts in {fmtClock(startsAtTs)} ({Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')})</span>
+  }
+  if (now <= endMs) {
+    const left = Math.ceil((endMs - now) / 1000)
+    const m = Math.floor(left / 60)
+    const s = String(left % 60).padStart(2, '0')
+    return <span className="badge badge-live">● LIVE — ends in {m}:{s}</span>
+  }
+  return <span className="badge badge-absent">● Expired</span>
+}
 
 export default function FacultyAttendance() {
   const [dash, setDash] = useState(null)
   const [students, setStudents] = useState([])
   const [error, setError] = useState('')
   const [selectedCourse, setSelectedCourse] = useState('')
+  const [qrCourse, setQrCourse] = useState('')
+  const [qrStart, setQrStart] = useState(() => toLocalInput(new Date()))
+  const [qrDuration, setQrDuration] = useState(60)
+  const [qrData, setQrData] = useState(null)
+  const [qrBusy, setQrBusy] = useState(false)
   const [selectedDate, setSelectedDate] = useState('')
   const [selected, setSelected] = useState({})
+  const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
@@ -26,14 +69,74 @@ export default function FacultyAttendance() {
       setToast('Select a course and date first')
       return
     }
-    const ids = students.map((s) => s.id)
-    const res = await api('/api/faculty/attendance/mark', {
-      method: 'POST',
-      body: { course_id: selectedCourse, date: selectedDate, student_ids: ids },
-    })
-    setToast(res.message || 'Attendance marked')
-    setSelected({})
+    setBusy(true)
+    try {
+      const ids = students.map((s) => s.id)
+      const res = await api('/api/faculty/attendance/mark', {
+        method: 'POST',
+        body: { course_id: selectedCourse, date: selectedDate, student_ids: ids },
+      })
+      setToast(res.message || 'Attendance marked')
+      setSelected({})
+    } catch (e) {
+      setToast(e.message)
+    } finally {
+      setBusy(false)
+    }
   }
+
+  async function markSelected() {
+    if (!selectedCourse || !selectedDate) {
+      setToast('Select a course and date first')
+      return
+    }
+    const ids = students.filter((s) => selected[s.id]).map((s) => s.id)
+    if (!ids.length) {
+      setToast('Select at least one student')
+      return
+    }
+    setBusy(true)
+    try {
+      const res = await api('/api/faculty/attendance/mark', {
+        method: 'POST',
+        body: { course_id: selectedCourse, date: selectedDate, student_ids: ids },
+      })
+      setToast(res.message || 'Attendance marked')
+      setSelected({})
+    } catch (e) {
+      setToast(e.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function generateQr(e) {
+    e?.preventDefault()
+    if (!qrCourse) {
+      setToast('Select a course first')
+      return
+    }
+    setQrBusy(true)
+    setQrData(null)
+    try {
+      const res = await api('/api/faculty/attendance/qr', {
+        method: 'POST',
+        body: {
+          course_id: qrCourse,
+          starts_at: qrStart,
+          duration_minutes: qrDuration,
+        },
+      })
+      setQrData(res)
+      setToast(`QR generated for ${res.name} — valid ${fmtClock(res.starts_at_ts)}–${fmtClock(res.ends_at_ts)}`)
+    } catch (err) {
+      setToast(err.message || 'Could not generate QR')
+    } finally {
+      setQrBusy(false)
+    }
+  }
+
+  const courses = dash?.courses || []
 
   return (
     <div>
@@ -51,7 +154,7 @@ export default function FacultyAttendance() {
               <label>Course</label>
               <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
                 <option value="">Select course…</option>
-                {(dash?.courses || []).map((c) => (
+                {courses.map((c) => (
                   <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                 ))}
               </select>
@@ -89,45 +192,71 @@ export default function FacultyAttendance() {
             <p className="muted small">No students registered.</p>
           )}
           <div className="space-x mt">
-            <button
-              className="btn btn-primary"
-              onClick={() => {
-                const ids = students.filter((s) => selected[s.id]).map((s) => s.id)
-                if (!selectedCourse || !selectedDate) {
-                  setToast('Select a course and date first')
-                  return
-                }
-                api('/api/faculty/attendance/mark', {
-                  method: 'POST',
-                  body: { course_id: selectedCourse, date: selectedDate, student_ids: ids },
-                }).then((r) => { setToast(r.message); setSelected({}) })
-                  .catch((e) => setToast(e.message))
-              }}
-            >
-              Mark Selected Present
+            <button className="btn btn-primary" onClick={markSelected} disabled={busy}>
+              {busy ? 'Saving…' : 'Mark Selected Present'}
             </button>
-            <button className="btn btn-outline" onClick={markAll}>
+            <button className="btn btn-outline" onClick={markAll} disabled={busy}>
               Mark All Present
             </button>
           </div>
         </div>
 
         <div className="card">
-          <h3 style={{ marginBottom: 12 }}>Generate Attendance QR</h3>
+          <h3 style={{ marginBottom: 4 }}>Generate Attendance QR</h3>
           <p className="small muted" style={{ marginBottom: 16 }}>
-            Display this QR in class. Students scan it to check in for the selected course.
+            Set the class time &amp; duration. Students can check in only while the class is running.
           </p>
-          <div className="form-group" style={{ marginBottom: 16 }}>
-            <label>Course</label>
-            <select value={selectedCourse} onChange={(e) => setSelectedCourse(e.target.value)}>
-              <option value="">Select course…</option>
-              {(dash?.courses || []).map((c) => (
-                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-              ))}
-            </select>
-          </div>
-          {selectedCourse && (
-            <QRCourseCard course={dash?.courses.find((c) => c.id === selectedCourse)} />
+          <form className="form" onSubmit={generateQr}>
+            <div className="form-group">
+              <label>Course</label>
+              <select value={qrCourse} onChange={(e) => { setQrCourse(e.target.value); setQrData(null) }}>
+                <option value="">Select course…</option>
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="form-row">
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Class starts</label>
+                <input type="datetime-local" value={qrStart} onChange={(e) => { setQrStart(e.target.value); setQrData(null) }} />
+              </div>
+              <div style={{ width: 16 }} />
+              <div className="form-group" style={{ flex: 1 }}>
+                <label>Duration (min)</label>
+                <select value={qrDuration} onChange={(e) => { setQrDuration(Number(e.target.value)); setQrData(null) }}>
+                  {[30, 45, 60, 90, 120, 180].map((d) => (
+                    <option key={d} value={d}>{d} min</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <button className="btn btn-primary" disabled={qrBusy}>
+              {qrBusy ? 'Generating…' : (qrData ? 'Regenerate QR' : 'Generate QR')}
+            </button>
+          </form>
+
+          {qrData ? (
+            <div className="qr-stage">
+              <div className="qr-box">
+                <QRCodeSVG value={qrData.token} size={200} bgColor="#ffffff" fgColor="#0f172a" />
+              </div>
+              <p className="qr-title">{qrData.name}</p>
+              <p className="small muted">{qrData.code}</p>
+              <p className="qr-window">{fmtClock(qrData.starts_at_ts)} – {fmtClock(qrData.ends_at_ts)}</p>
+              <LiveStatus startsAtTs={qrData.starts_at_ts} endsAtTs={qrData.ends_at_ts} />
+              <p className="small muted qr-note">Students scan this QR from their app to mark themselves present.</p>
+            </div>
+          ) : (
+            <div className="qr-placeholder">
+              <span className="qr-placeholder-icon">▦</span>
+              <p className="small muted">Display this QR on screen in class.</p>
+              <ol className="qr-steps small">
+                <li>Pick your course and class time.</li>
+                <li>Click <b>Generate QR</b>.</li>
+                <li>Show it at the projector — students scan to check in.</li>
+              </ol>
+            </div>
           )}
         </div>
       </div>

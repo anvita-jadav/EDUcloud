@@ -6,3 +6,6 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+venv/firebase-service-account.json
+*-firebase-adminsdk-*.json
+firebase-service-account.json

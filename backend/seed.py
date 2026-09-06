@@ -1,101 +1,164 @@
-from app.core.dbutils import Base, engine, SessionLocal
-from app.models import models
-from app.models.models import (
-    User, Student, Faculty, Course, Attendance, Result, Timetable, Notification, Profile,
+import sys
+from datetime import date, timedelta
+from app.core.firestore_utils import (
+    add_item, list_collection, gen_id, now,
 )
 
-Base.metadata.create_all(bind=engine)
-db = SessionLocal()
 
-if db.query(Course).count() == 0:
-    faculty = Faculty(
-        name="Prof. Sharma",
-        email="sharma@mitkundapura.edu",
-        department="CSE",
-        subject="Data Structures",
-    )
-    db.add(faculty)
-    db.flush()
+def seed():
+    try:
+        if list_collection("courses") or list_collection("users"):
+            print("Database already has data, skipping seed.")
+            return
 
-    faculty2 = Faculty(
-        name="Prof. Rao",
-        email="rao@mitkundapura.edu",
-        department="CSE",
-        subject="Database Systems",
-    )
-    db.add(faculty2)
-    db.flush()
+        f1 = gen_id()
+        add_item("faculties", {
+            "faculty_id": f1,
+            "name": "Prof. Sharma",
+            "email": "sharma@mitkundapura.edu",
+            "department": "CSE",
+            "subject": "Data Structures",
+            "created_at": now(),
+            "updated_at": now(),
+        })
 
-    courses = [
-        Course(code="CS501", name="Data Structures", department="CSE", semester="5", credits=4, faculty_id=faculty.faculty_id),
-        Course(code="CS502", name="Database Systems", department="CSE", semester="5", credits=4, faculty_id=faculty2.faculty_id),
-        Course(code="CS503", name="Operating Systems", department="CSE", semester="5", credits=3, faculty_id=faculty.faculty_id),
-        Course(code="CS504", name="Computer Networks", department="CSE", semester="5", credits=3, faculty_id=faculty2.faculty_id),
-    ]
-    for c in courses:
-        db.add(c)
-    db.flush()
+        f2 = gen_id()
+        add_item("faculties", {
+            "faculty_id": f2,
+            "name": "Prof. Rao",
+            "email": "rao@mitkundapura.edu",
+            "department": "CSE",
+            "subject": "Database Systems",
+            "created_at": now(),
+            "updated_at": now(),
+        })
 
-    students = [
-        Student(name="Ananya", email="ananya@mitkundapura.edu", roll_number="4MK23CS010", department="CSE", semester="5"),
-        Student(name="Anvitha", email="anvitha@mitkundapura.edu", roll_number="4MK23CS017", department="CSE", semester="5"),
-        Student(name="Ini T V", email="ini@mitkundapura.edu", roll_number="4MK23CS042", department="CSE", semester="5"),
-        Student(name="Shabari", email="shabari@mitkundapura.edu", roll_number="4MK23CS094", department="CSE", semester="5"),
-    ]
-    for s in students:
-        db.add(s)
-    db.flush()
+        courses_spec = [
+            ("CS501", "Data Structures", "CSE", "5", 4, f1),
+            ("CS502", "Database Systems", "CSE", "5", 4, f2),
+            ("CS503", "Operating Systems", "CSE", "5", 3, f1),
+            ("CS504", "Computer Networks", "CSE", "5", 3, f2),
+        ]
+        courses = []
+        for code, name, dept, sem, credits, fid in courses_spec:
+            cid = gen_id()
+            add_item("courses", {
+                "course_id": cid,
+                "code": code,
+                "name": name,
+                "department": dept,
+                "semester": sem,
+                "credits": credits,
+                "faculty_id": fid,
+                "created_at": now(),
+                "updated_at": now(),
+            })
+            courses.append(cid)
 
-    from datetime import date, timedelta
+        students_spec = [
+            ("Ananya", "ananya@mitkundapura.edu", "4MK23CS010"),
+            ("Anvitha", "anvitha@mitkundapura.edu", "4MK23CS017"),
+            ("Ini T V", "ini@mitkundapura.edu", "4MK23CS042"),
+            ("Shabari", "shabari@mitkundapura.edu", "4MK23CS094"),
+        ]
+        students = []
+        for name, email, roll in students_spec:
+            sid = gen_id()
+            user_id = gen_id()
+            add_item("students", {
+                "student_id": sid,
+                "user_id": user_id,
+                "name": name,
+                "email": email,
+                "roll_number": roll,
+                "department": "CSE",
+                "semester": "5",
+                "created_at": now(),
+                "updated_at": now(),
+            })
+            # Placeholder user document (uid unknown until Firebase auth).
+            # The register endpoint will link a real uid when the user signs up
+            # with the same email.
+            add_item("users", {
+                "user_id": user_id,
+                "email": email,
+                "name": name,
+                "role": "student",
+                "uid": email,
+                "created_at": now(),
+                "updated_at": now(),
+            })
+            add_item("profiles", {
+                "profile_id": gen_id(),
+                "user_id": user_id,
+                "roll_number": roll,
+                "department": "CSE",
+                "semester": "5",
+            })
+            students.append(sid)
 
-    for s in students:
-        for c in courses[:3]:
-            for i in range(10):
-                d = (date.today() - timedelta(days=20 - i)).isoformat()
-                status = "present" if i % 4 else "absent"
-                db.add(Attendance(
-                    student_id=s.student_id,
-                    course_id=c.course_id,
-                    date=d,
-                    status=status,
-                    method="qr" if i % 2 == 0 else "manual",
-                ))
-        db.add(Result(
-            student_id=s.student_id,
-            course_id=courses[0].course_id,
-            internal_marks=38,
-            external_marks=42,
-            grade="A",
-        ))
-        db.add(Result(
-            student_id=s.student_id,
-            course_id=courses[1].course_id,
-            internal_marks=35,
-            external_marks=39,
-            grade="B+",
-        ))
+        for sid in students:
+            for cid in courses[:3]:
+                for i in range(10):
+                    d = (date.today() - timedelta(days=20 - i)).isoformat()
+                    status = "absent" if i % 4 == 0 else "present"
+                    add_item("attendances", {
+                        "attendance_id": gen_id(),
+                        "student_id": sid,
+                        "course_id": cid,
+                        "date": d,
+                        "status": status,
+                        "method": "qr" if i % 2 == 0 else "manual",
+                        "created_at": now(),
+                    })
+            add_item("results", {
+                "result_id": gen_id(),
+                "student_id": sid,
+                "course_id": courses[0],
+                "internal_marks": 38,
+                "external_marks": 42,
+                "grade": "A",
+                "created_at": now(),
+            })
+            add_item("results", {
+                "result_id": gen_id(),
+                "student_id": sid,
+                "course_id": courses[1],
+                "internal_marks": 35,
+                "external_marks": 39,
+                "grade": "B+",
+                "created_at": now(),
+            })
 
-    db.add(Timetable(course_id=courses[0].course_id, day="Monday", time="09:00", room="A101"))
-    db.add(Timetable(course_id=courses[1].course_id, day="Wednesday", time="11:00", room="A102"))
-    db.add(Timetable(course_id=courses[2].course_id, day="Friday", time="14:00", room="B201"))
+        add_item("timetable", {"timetable_id": gen_id(), "course_id": courses[0], "day": "Monday", "time": "09:00", "room": "A101", "created_at": now()})
+        add_item("timetable", {"timetable_id": gen_id(), "course_id": courses[1], "day": "Wednesday", "time": "11:00", "room": "A102", "created_at": now()})
+        add_item("timetable", {"timetable_id": gen_id(), "course_id": courses[2], "day": "Friday", "time": "14:00", "room": "B201", "created_at": now()})
 
-    db.add(Notification(
-        title="Welcome to EduCloude",
-        message="Your secure student information platform is live. Keep your credentials safe.",
-        role="student",
-    ))
-    db.add(Notification(
-        title="Attendance policy",
-        message="Students must maintain at least 75% attendance to be eligible for exams.",
-        role="student",
-    ))
+        add_item("notifications", {
+            "notification_id": gen_id(),
+            "title": "Welcome to EduCloude",
+            "message": "Your secure student information platform is live. Keep your credentials safe.",
+            "role": "student",
+            "user_id": None,
+            "created_at": now(),
+        })
+        add_item("notifications", {
+            "notification_id": gen_id(),
+            "title": "Attendance policy",
+            "message": "Students must maintain at least 75% attendance to be eligible for exams.",
+            "role": "student",
+            "user_id": None,
+            "created_at": now(),
+        })
 
-    db.commit()
-    print("Seeded demo data:")
-    print(f"  students: {len(students)}")
-    print(f"  courses: {len(courses)}")
-    print(f"  faculties: 2")
-else:
-    print("Database already has data, skipping seed.")
+        print("Seeded demo data:")
+        print(f"  students: {len(students)}")
+        print(f"  courses: {len(courses)}")
+        print(f"  faculties: 2")
+    except Exception as e:
+        print(f"Seeding failed: {e}", file=sys.stderr)
+        sys.exit(1)
 
-db.close()
+
+if __name__ == "__main__":
+    seed()

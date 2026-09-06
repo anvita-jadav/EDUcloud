@@ -8,6 +8,8 @@ export default function StudentAttendance() {
   const [error, setError] = useState('')
   const [scanner, setScanner] = useState(false)
   const [toast, setToast] = useState('')
+  const [toastType, setToastType] = useState('success')
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     api('/api/student/attendance').then(setData).catch((e) => setError(e.message))
@@ -15,29 +17,55 @@ export default function StudentAttendance() {
 
   async function handleScan(result) {
     setScanner(false)
+    setBusy(true)
     try {
-      const courseCode = result?.data || result || ''
-      await api('/api/student/attendance/checkin', { method: 'POST', body: { course_code: courseCode } })
-      setToast('Attendance marked successfully!')
+      const res = await api('/api/student/attendance/checkin', {
+        method: 'POST',
+        body: { course_code: result || '' },
+      })
+      setToastType('success')
+      setToast(res.message || 'Attendance marked successfully!')
       const fresh = await api('/api/student/attendance')
       setData(fresh)
     } catch (e) {
-      setToast(e.message)
+      setToastType('error')
+      setToast(e.message || 'Check-in failed')
+    } finally {
+      setBusy(false)
     }
   }
+
+  const records = data?.records || []
+  const present = records.filter((r) => r.status === 'present').length
+  const todayCount = records.filter((r) => r.date === new Date().toISOString().slice(0, 10)).length
 
   return (
     <div>
       <div className="page-head">
         <h1>Attendance</h1>
         <div className="space-x">
-          <button className="btn btn-primary" onClick={() => setScanner(!scanner)}>
+          <button className="btn btn-primary" onClick={() => setScanner(!scanner)} disabled={busy}>
             {scanner ? 'Close scanner' : 'Scan QR to check in'}
           </button>
         </div>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
+
+      <div className="hero-card">
+        <div>
+          <p className="hero-eyebrow">Scan your faculty&apos;s class QR</p>
+          <h2>Mark yourself present in one tap</h2>
+          <p className="small muted">
+            Open your faculty&apos;s projector QR while the class is running and scan it. Your
+            attendance is saved automatically for that course.
+          </p>
+        </div>
+        <button className="btn btn-primary btn-lg" onClick={() => setScanner(!scanner)} disabled={busy}>
+          {busy ? 'Checking in…' : scanner ? 'Close scanner' : 'Scan QR'}
+        </button>
+      </div>
+
       {scanner && <QRScannerView onResult={handleScan} />}
 
       {!data && !error && <div className="center-screen"><div className="spinner" /></div>}
@@ -48,27 +76,30 @@ export default function StudentAttendance() {
             <div className="card stat">
               <span className="stat-label">Attendance</span>
               <span className="stat-value">{data.percentage || 0}%</span>
+              <span className="stat-sub">{present} of {records.length} classes present</span>
             </div>
             <div className="card stat">
               <span className="stat-label">QR Check-ins</span>
-              <span className="stat-value">{data.records?.filter((r) => r.method === 'qr').length || 0}</span>
+              <span className="stat-value">{records.filter((r) => r.method === 'qr').length || 0}</span>
+              <span className="stat-sub">scanned this term</span>
             </div>
             <div className="card stat">
               <span className="stat-label">Manual</span>
-              <span className="stat-value">{data.records?.filter((r) => r.method === 'manual').length || 0}</span>
+              <span className="stat-value">{records.filter((r) => r.method === 'manual').length || 0}</span>
+              <span className="stat-sub">{todayCount} class(es) today</span>
             </div>
           </div>
 
           <div className="card">
             <h3 style={{ marginBottom: 12 }}>Attendance Records</h3>
-            {data.records?.length ? (
+            {records.length ? (
               <div className="table-wrap">
                 <table className="table">
                   <thead>
                     <tr><th>Date</th><th>Course</th><th>Status</th><th>Method</th></tr>
                   </thead>
                   <tbody>
-                    {data.records.map((r, i) => (
+                    {records.map((r, i) => (
                       <tr key={i}>
                         <td>{r.date}</td>
                         <td>{r.course}</td>
@@ -90,7 +121,7 @@ export default function StudentAttendance() {
         </>
       )}
 
-      {toast && <Toast type={toast.includes('marked') ? 'success' : 'error'} message={toast} onClose={() => setToast('')} />}
+      {toast && <Toast type={toastType} message={toast} onClose={() => setToast('')} />}
     </div>
   )
 }

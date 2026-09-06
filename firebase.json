@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "public": "frontend/dist",
+    "site": "educloud-f42a0",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

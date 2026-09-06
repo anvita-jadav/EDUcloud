@@ -6,22 +6,22 @@ import Chatbot from './Chatbot'
 
 const NAV = {
   student: [
-    { to: '/student', label: 'Dashboard', end: true },
-    { to: '/student/attendance', label: 'Attendance' },
-    { to: '/student/results', label: 'Results' },
+    { to: '/student', label: 'Dashboard', icon: '🏠', end: true },
+    { to: '/student/attendance', label: 'Scan Attendance', icon: '📷' },
+    { to: '/student/results', label: 'Results', icon: '🎓' },
   ],
   faculty: [
-    { to: '/faculty', label: 'Dashboard', end: true },
-    { to: '/faculty/attendance', label: 'Attendance & QR' },
-    { to: '/faculty/marks', label: 'Enter Marks' },
+    { to: '/faculty', label: 'Dashboard', icon: '🏠', end: true },
+    { to: '/faculty/attendance', label: 'Attendance & QR', icon: '✅' },
+    { to: '/faculty/marks', label: 'Enter Marks', icon: '📊' },
   ],
   admin: [
-    { to: '/admin', label: 'Dashboard', end: true },
-    { to: '/admin/students', label: 'Students' },
-    { to: '/admin/faculty', label: 'Faculty' },
-    { to: '/admin/courses', label: 'Courses' },
-    { to: '/admin/timetable', label: 'Timetable' },
-    { to: '/admin/reports', label: 'Reports' },
+    { to: '/admin', label: 'Dashboard', icon: '🏠', end: true },
+    { to: '/admin/students', label: 'Students', icon: '🎓' },
+    { to: '/admin/faculty', label: 'Faculty', icon: '👩‍🏫' },
+    { to: '/admin/courses', label: 'Courses', icon: '📚' },
+    { to: '/admin/timetable', label: 'Timetable', icon: '🗓️' },
+    { to: '/admin/reports', label: 'Reports', icon: '📈' },
   ],
 }
 
@@ -32,24 +32,30 @@ const ROLE_COLORS = {
 }
 
 export default function DashboardLayout() {
-  const { user, signOut, loadUser } = useAuth()
+  const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
-    if (!user) return
-    loadUser()
-    if (user.role === 'student') {
-      api('/api/student/notifications').then((d) => setNotifCount(d.notifications?.length || 0)).catch(() => {})
-    } else if (user.role === 'admin') {
-      api('/api/admin/notifications').then((d) => setNotifCount(d.notifications?.length || 0)).catch(() => {})
+    const role = user?.role
+    if (!role) return
+    let cancelled = false
+    if (role === 'student') {
+      api('/api/student/notifications').then((d) => {
+        if (!cancelled) setNotifCount(d.notifications?.length || 0)
+      }).catch(() => {})
+    } else if (role === 'admin') {
+      api('/api/admin/notifications').then((d) => {
+        if (!cancelled) setNotifCount(d.notifications?.length || 0)
+      }).catch(() => {})
     }
-  }, [user?.user_id])
+    return () => { cancelled = true }
+  }, [user?.user_id, user?.role])
 
   const items = NAV[user?.role] || []
 
-  function handleSignOut() {
-    signOut()
+  async function handleSignOut() {
+    await signOut()
     navigate('/login')
   }
 
@@ -71,6 +77,7 @@ export default function DashboardLayout() {
               end={item.end}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
+              <span style={{ opacity: 0.8, marginRight: 10 }}>{item.icon}</span>
               {item.label}
             </NavLink>
           ))}

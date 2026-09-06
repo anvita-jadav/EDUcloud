@@ -57,6 +57,7 @@ export default function StudentDashboard() {
               <p><strong>Roll:</strong> {data.roll_number}</p>
               <p><strong>Department:</strong> {data.department}</p>
               <p><strong>Semester:</strong> {data.semester}</p>
+              <p><strong>Faculty:</strong> {data.mentor || 'Not assigned'}</p>
             </div>
 
             <div className="card">

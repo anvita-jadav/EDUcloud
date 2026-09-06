@@ -45,7 +45,7 @@ export default function AdminDashboard() {
             <h3 style={{ marginBottom: 12 }}>System Overview</h3>
             <p className="muted small">
               Welcome back, {user?.name}. Use the management modules to administer students, faculty,
-              courses, and the timetable. Security is enforced by Supabase JWT authentication,
+              courses, and the timetable. Security is enforced by Firebase authentication,
               role-based access control, and encrypted storage.
             </p>
           </div>

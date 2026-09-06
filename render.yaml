@@ -1,0 +1,61 @@
+# Render Blueprint — deploys the EduCloude backend (FastAPI) and frontend (Vite)
+# Docs: https://render.com/docs/blueprint-spec
+
+services:
+  # ---------- Backend API (FastAPI + Firebase Admin) ----------
+  - type: web
+    name: educloude-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    region: singapore
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: FIREBASE_PROJECT_ID
+        value: educloud-f42a0
+      - key: FIREBASE_SERVICE_ACCOUNT_B64
+        sync: false
+      # No trailing slash. Replace with your real frontend URL.
+      - key: CORS_ORIGINS
+        value: https://educloude-frontend.onrender.com
+      - key: SECRET_KEY
+        sync: false
+      # Fixed admin account (username: jadav / password: EDUcloud@987)
+      - key: ADMIN_USERNAME
+        value: jadav
+      - key: ADMIN_PASSWORD
+        value: EDUcloud@987
+      # Gemini key for the EDUtech AI chatbot (suspended until you for keep a
+      # valid key from Google AI Studio)
+      - key: GEMINI_API_KEY
+        sync: false
+
+  # ---------- Frontend (Vite static SPA) ----------
+  - type: static
+    name: educloude-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    publishPath: dist
+    routes:
+      - type: rewrite
+        source: /**
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://educloude-backend.onrender.com
+      # Firebase web config + any secrets are set from the Render dashboard
+      # (copy from frontend/.env). Marked sync:false so nothing sensitive is
+      # committed to git.
+      - key: VITE_FIREBASE_API_KEY
+        sync: false
+      - key: VITE_FIREBASE_AUTH_DOMAIN
+        sync: false
+      - key: VITE_FIREBASE_PROJECT_ID
+        sync: false
+      - key: VITE_FIREBASE_STORAGE_BUCKET
+        sync: false
+      - key: VITE_FIREBASE_MESSAGING_SENDER_ID
+        sync: false
+      - key: VITE_FIREBASE_APP_ID
+        sync: false

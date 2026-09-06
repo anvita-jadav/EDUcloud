@@ -23,7 +23,7 @@ export default function AdminReports() {
           <div className="grid grid-4" style={{ marginBottom: 24 }}>
             {Object.entries(reports).map(([k, v]) => (
               <div className="card stat" key={k}>
-                <span className="stat-label">{k.replace(/_/g, ' ')}</span>
+                <span className="stat-label">{k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())}</span>
                 <span className="stat-value">{v}</span>
               </div>
             ))}
@@ -31,7 +31,7 @@ export default function AdminReports() {
 
           <div className="card">
             <h3 style={{ marginBottom: 12 }}>Faculty Performance</h3>
-            <FaultyReportsTable />
+            <FacultyReportsTable />
           </div>
         </>
       )}
@@ -39,7 +39,7 @@ export default function AdminReports() {
   )
 }
 
-function FaultyReportsTable() {
+function FacultyReportsTable() {
   const [rows, setRows] = useState([])
   const [error, setError] = useState('')
 
@@ -55,7 +55,7 @@ function FaultyReportsTable() {
     <div className="table-wrap">
       <table className="table">
         <thead>
-          <tr><th>Course</th><th>Code</th><th>Attendance %</th></tr>
+          <tr><th>Course</th><th>Code</th><th>Attendance %</th><th>Marks Entries</th></tr>
         </thead>
         <tbody>
           {rows.map((r, i) => (
@@ -63,6 +63,7 @@ function FaultyReportsTable() {
               <td>{r.course}</td>
               <td>{r.code}</td>
               <td>{r.attendance_pct}%</td>
+              <td>{r.total_marks_entries}</td>
             </tr>
           ))}
         </tbody>

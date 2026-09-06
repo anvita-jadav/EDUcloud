@@ -1,65 +1,197 @@
-import { createContext, useContext, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-import { api } from '../lib/api'
+import { createContext, useContext, useEffect, useRef, useState } from 'react'
+import {
+  auth,
+  signInWithPopup,
+  googleProvider,
+  onAuthStateChanged,
+  signOut as fbSignOut,
+  deleteUser,
+} from '../lib/firebase'
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from 'firebase/auth'
+import { api, getCredToken, setCredToken, clearCredToken } from '../lib/api'
 
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const manual = useRef(false)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session?.user) {
-        loadUser()
-      }
-      setLoading(false)
-    })
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        loadUser()
+    // Credential-based session (faculty/admin) takes priority over Firebase.
+    if (getCredToken()) {
+      loadCredUser()
+      return
+    }
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+      if (fbUser) {
+        if (!manual.current) loadUser()
       } else {
         setUser(null)
+        setLoading(false)
       }
     })
-
-    return () => listener?.subscription?.unsubscribe()
+    return () => unsubscribe()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadUser() {
     try {
-      const me = await api('/api/user/me')
-      setUser({ supabaseId: me.user_id, ...me })
-    } catch {
-      setUser(null)
+      let me
+      try {
+        me = await api('/api/user/me')
+      } catch {
+        try {
+          await api('/api/user/oauth/register', { method: 'POST' })
+          me = await api('/api/user/me')
+        } catch {
+          setUser(null)
+          return null
+        }
+      }
+      setUser(me)
+      return me
+    } finally {
+      setLoading(false)
     }
   }
 
-  async function signUp({ email, password, name, role, ...profile }) {
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) throw error
-    await api('/api/user/register', { method: 'POST', body: { name, role, ...profile } })
-    return data
+  async function loadCredUser() {
+    try {
+      const me = await api('/api/user/me')
+      setUser(me)
+      setLoading(false)
+    } catch {
+      clearCredToken()
+      setUser(null)
+      setLoading(false)
+    }
+  }
+
+  async function signUp({ email, password, name, faculty_id, ...profile }) {
+    let fbUser = null
+    try {
+      manual.current = true
+      const cred = await createUserWithEmailAndPassword(auth, email, password)
+      fbUser = cred.user
+    } catch (err) {
+      throw new Error(friendlyAuthError(err))
+    }
+    try {
+      await api('/api/user/register', { method: 'POST', body: { name, faculty_id, ...profile } })
+    } catch (err) {
+      if (fbUser) {
+        try {
+          await deleteUser(fbUser)
+        } catch {
+          // The user object may not be deletable on all providers.
+        }
+      }
+      if (auth.currentUser) {
+        try {
+          await fbSignOut(auth)
+        } catch {
+          // ignore
+        }
+      }
+      throw new Error(err.message || 'Registration failed')
+    } finally {
+      manual.current = false
+    }
+    const me = await loadUser()
+    if (!me) throw new Error('Account created but we could not load your profile. Please sign in again.')
+    return me
   }
 
   async function signIn(email, password) {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    await loadUser()
-    return data
+    try {
+      manual.current = true
+      await signInWithEmailAndPassword(auth, email, password)
+    } catch (err) {
+      throw new Error(friendlyAuthError(err))
+    } finally {
+      manual.current = false
+    }
+    const me = await loadUser()
+    if (!me) throw new Error('Account not found. Please register first.')
+    return me
+  }
+
+  async function signInWithGoogle() {
+    try {
+      manual.current = true
+      await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      throw new Error(friendlyAuthError(err))
+    } finally {
+      manual.current = false
+    }
+    const me = await loadUser()
+    if (!me) throw new Error('Account not found. Please register first.')
+    return me
+  }
+
+  async function facultyLogin(username, password) {
+    const res = await api('/api/user/credential-login', {
+      method: 'POST',
+      body: { username, password },
+    })
+    setCredToken(res.token)
+    setUser(res.user)
+    return res.user
+  }
+
+  async function adminLogin(username, password) {
+    const res = await api('/api/user/admin-login', {
+      method: 'POST',
+      body: { username, password },
+    })
+    setCredToken(res.token)
+    setUser(res.user)
+    return res.user
   }
 
   async function signOut() {
-    await supabase.auth.signOut()
+    try {
+      if (auth.currentUser) await fbSignOut(auth)
+    } catch {
+      // ignore
+    }
+    clearCredToken()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut, loadUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        signUp,
+        signIn,
+        signInWithGoogle,
+        facultyLogin,
+        adminLogin,
+        signOut,
+        loadUser,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
+}
+
+function friendlyAuthError(err) {
+  const code = err?.code || ''
+  if (code === 'auth/email-already-in-use') return 'This email is already registered. Please sign in instead.'
+  if (code === 'auth/invalid-email') return 'Please enter a valid email address.'
+  if (code === 'auth/user-not-found') return 'No account found with this email.'
+  if (code === 'auth/wrong-password' || code === 'auth/invalid-credential') return 'Incorrect email or password.'
+  if (code === 'auth/weak-password') return 'Password should be at least 6 characters.'
+  if (code === 'auth/popup-closed-by-user') return 'Google sign-in was cancelled.'
+  return err?.message || 'Authentication failed'
 }
 
 export function useAuth() {

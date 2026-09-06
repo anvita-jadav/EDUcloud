@@ -2,12 +2,15 @@ import { useEffect, useState } from 'react'
 import { api } from '../../lib/api'
 import Toast from '../../components/Toast'
 
+const GRADES = ['A+', 'A', 'B+', 'B', 'C', 'D', 'F']
+
 export default function FacultyMarks() {
   const [dash, setDash] = useState(null)
   const [students, setStudents] = useState([])
   const [error, setError] = useState('')
   const [courseId, setCourseId] = useState('')
   const [entries, setEntries] = useState({})
+  const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
 
   useEffect(() => {
@@ -16,6 +19,10 @@ export default function FacultyMarks() {
   }, [])
 
   function setField(sid, field, value) {
+    if (field === 'internal' || field === 'external') {
+      const num = Number(value)
+      if (value !== '' && (isNaN(num) || num < 0 || num > 50)) return
+    }
     setEntries((prev) => ({
       ...prev,
       [sid]: { ...(prev[sid] || {}), [field]: value },
@@ -38,31 +45,43 @@ export default function FacultyMarks() {
       setToast('Select a course first')
       return
     }
+    const keys = Object.keys(entries)
+    if (!keys.length) {
+      setToast('No entries to save')
+      return
+    }
+    setBusy(true)
+    const failed = []
     let saved = 0
-    for (const sid of Object.keys(entries)) {
+    for (const sid of keys) {
       const e = entries[sid]
       const internal = Number(e.internal) || 0
       const external = Number(e.external) || 0
-      const grade = e.grade || computeGrade(internal, external)
-      await api('/api/faculty/results/enter', {
-        method: 'POST',
-        body: { course_id: courseId, student_id: sid, internal_marks: internal, external_marks: external, grade },
-      })
-      saved++
+      const grade = e.grade && GRADES.includes(e.grade) ? e.grade : computeGrade(internal, external)
+      try {
+        await api('/api/faculty/results/enter', {
+          method: 'POST',
+          body: { course_id: courseId, student_id: sid, internal_marks: internal, external_marks: external, grade },
+        })
+        saved++
+      } catch (err) {
+        failed.push(`${e.name || sid}: ${err.message}`)
+      }
     }
-    if (saved) {
-      setToast(`Saved results for ${saved} students`)
-      setEntries({})
-    } else {
-      setToast('No entries to save')
-    }
+    if (saved && failed.length) setToast(`Saved ${saved} and ${failed.length} failed: ${failed.join(' · ')}`)
+    else if (saved) setToast(`Saved results for ${saved} student${saved > 1 ? 's' : ''}`)
+    else if (failed.length) setToast(`Nothing saved: ${failed.join(' · ')}`)
+    if (failed.length === 0) setEntries({})
+    setBusy(false)
   }
 
   return (
     <div>
       <div className="page-head">
         <h1>Enter Marks</h1>
-        <button className="btn btn-primary" onClick={saveAll}>Save all</button>
+        <button className="btn btn-primary" onClick={saveAll} disabled={busy}>
+          {busy ? 'Saving…' : 'Save all'}
+        </button>
       </div>
 
       {error && <div className="alert alert-danger">{error}</div>}
@@ -121,11 +140,15 @@ export default function FacultyMarks() {
                         />
                       </td>
                       <td>
-                        <input
+                        <select
                           value={e.grade ?? computeGrade(e.internal, e.external)}
                           onChange={(ev) => setField(s.id, 'grade', ev.target.value)}
-                          style={{ width: 60 }}
-                        />
+                          style={{ width: 80 }}
+                        >
+                          {GRADES.map((g) => (
+                            <option key={g} value={g}>{g}</option>
+                          ))}
+                        </select>
                       </td>
                     </tr>
                   )

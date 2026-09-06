@@ -3,9 +3,14 @@ import { Html5Qrcode } from 'html5-qrcode'
 
 export function QRScannerView({ onResult }) {
   const scannerRef = useRef(null)
+  const onResultRef = useRef(onResult)
   const [manual, setManual] = useState('')
   const [active, setActive] = useState(false)
   const [scanError, setScanError] = useState('')
+
+  useEffect(() => {
+    onResultRef.current = onResult
+  }, [onResult])
 
   useEffect(() => {
     if (!active) return
@@ -17,15 +22,15 @@ export function QRScannerView({ onResult }) {
         { fps: 10, qrbox: { width: 220, height: 220 } },
         (decoded) => {
           scanner.stop().catch(() => {})
-          onResult(decoded)
+          if (onResultRef.current) onResultRef.current(String(decoded))
         },
         () => {},
       )
       .catch(() => setScanError('Camera unavailable — enter the code manually below.'))
 
     return () => {
-      scanner.stop().catch(() => {})
-        .finally(() => {})
+      scanner.stop().then(() => scanner.clear()).catch(() => {})
+      scannerRef.current = null
     }
   }, [active])
 
@@ -50,9 +55,13 @@ export function QRScannerView({ onResult }) {
           />
         </div>
         <button
+          type="button"
           className="btn btn-primary"
-          onClick={() => manual && onResult(manual)}
-          disabled={!manual}
+          onClick={() => {
+            const code = manual.trim()
+            if (code) onResult(code)
+          }}
+          disabled={!manual.trim()}
         >
           Check in
         </button>

@@ -1,12 +1,45 @@
 import os
+import secrets
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 class Config:
-    SUPABASE_PROJECT_ID = os.getenv("SUPABASE_PROJECT_ID")
-    SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY")
-    SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///educloude.db")
+    FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID")
+    FIREBASE_SERVICE_ACCOUNT_PATH = os.getenv(
+        "FIREBASE_SERVICE_ACCOUNT_PATH", "firebase-service-account.json"
+    )
+    # Populate this with the base64-encoded service account JSON on Render so the
+    # credential can be provided without committing the key file.
+    FIREBASE_SERVICE_ACCOUNT_B64 = os.getenv("FIREBASE_SERVICE_ACCOUNT_B64", "")
+    CORS_ORIGINS = [
+        o.strip()
+        for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
+        if o.strip()
+    ]
+    # Used to sign attendance QR tokens and credential-login sessions.
+    # Set a stable value in production.
+    SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)
+
+    # Fixed admin account (login username: jadav / password: EDUcloud@987)
+    ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "jadav")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "EDUcloud@987")
+
+    # Gemini API key used by the EDUtech AI chatbot
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+
+
+def validate_config():
+    if not Config.FIREBASE_PROJECT_ID:
+        raise RuntimeError(
+            "FIREBASE_PROJECT_ID is not set. Add it to backend/.env (see .env.sample)."
+        )
+    path = Config.FIREBASE_SERVICE_ACCOUNT_PATH
+    if path and not os.path.exists(path):
+        raise RuntimeError(
+            f"Firebase service account file not found at: {path}. "
+            "Download it from Firebase console and update FIREBASE_SERVICE_ACCOUNT_PATH."
+        )

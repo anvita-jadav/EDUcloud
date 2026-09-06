@@ -1,10 +1,16 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function Toast({ message, type = 'info', onClose }) {
+  const onCloseRef = useRef(onClose)
+
   useEffect(() => {
-    const t = setTimeout(onClose, 3500)
+    onCloseRef.current = onClose
+  })
+
+  useEffect(() => {
+    const t = setTimeout(() => onCloseRef.current?.(), 3500)
     return () => clearTimeout(t)
-  }, [])
+  }, [message])
 
   return <div className={`toast ${type}`}>{message}</div>
 }

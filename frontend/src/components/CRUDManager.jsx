@@ -7,15 +7,18 @@ export default function CRUDManager({ basePath, title, fields, listKey }) {
   const [form, setForm] = useState({})
   const [error, setError] = useState('')
   const [toast, setToast] = useState('')
+  const [toastType, setToastType] = useState('success')
 
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function load() {
     try {
       const data = await api(`/api/admin/${basePath}`)
       setRows(data[listKey] || [])
+      setError('')
     } catch (e) {
       setError(e.message)
     }
@@ -25,15 +28,24 @@ export default function CRUDManager({ basePath, title, fields, listKey }) {
     setForm((f) => ({ ...f, [name]: value }))
   }
 
+  function showToast(message, type = 'success') {
+    setToastType(type)
+    setToast(message)
+  }
+
   async function create(e) {
     e.preventDefault()
+    if (fields.some((f) => f.required && !String(form[f.name] || '').trim())) {
+      showToast('Please fill in all required fields.', 'error')
+      return
+    }
     try {
       await api(`/api/admin/${basePath}`, { method: 'POST', body: form })
-      setToast(`${title} added`)
+      showToast(`${title} added`)
       setForm({})
       load()
     } catch (err) {
-      setToast(err.message)
+      showToast(err.message, 'error')
     }
   }
 
@@ -41,10 +53,10 @@ export default function CRUDManager({ basePath, title, fields, listKey }) {
     if (!confirm('Delete this record?')) return
     try {
       await api(`/api/admin/${basePath}/${id}`, { method: 'DELETE' })
-      setToast('Deleted')
+      showToast('Deleted')
       load()
     } catch (err) {
-      setToast(err.message)
+      showToast(err.message, 'error')
     }
   }
 
@@ -112,7 +124,7 @@ export default function CRUDManager({ basePath, title, fields, listKey }) {
         </div>
       </div>
 
-      {toast && <Toast type={toast.includes('added') ? 'success' : 'error'} message={toast} onClose={() => setToast('')} />}
+      {toast && <Toast type={toastType} message={toast} onClose={() => setToast('')} />}
     </div>
   )
 }

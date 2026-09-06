@@ -36,7 +36,7 @@ export default function FacultyDashboard() {
             <div className="card stat">
               <span className="stat-label">Students</span>
               <span className="stat-value">{data.students_total || 0}</span>
-              <span className="stat-sub">in institution</span>
+              <span className="stat-sub">assigned to you</span>
             </div>
           </div>
 
