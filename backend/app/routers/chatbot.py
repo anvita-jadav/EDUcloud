@@ -60,7 +60,7 @@ def chat(payload: ChatPayload):
 
     try:
         response = client.models.generate_content(
-            model="gemini-2.0-flash",
+            model="gemini-3.6-flash",
             config={"system_instruction": SYSTEM_PROMPT},
             contents=contents,
         )
