@@ -6,27 +6,11 @@ from app.core.config import Config
 router = APIRouter()
 
 SYSTEM_PROMPT = (
-    "You are EDUtech AI, the friendly personal assistant inside the EduCloude student "
-    "information management system. You identify yourself as 'EDUtech AI' on every "
-    "conversation.\n\n"
-    "Your knowledge is focused on two areas:\n"
-    "1) Facts about the app itself: features like class QR attendance (faculty set a "
-    "class start time and duration, students scan the QR during that window to be "
-    "marked present), results and grades, marks entry, timetables, the admin panel, "
-    "and the student/faculty/admin roles.\n"
-    "2) General educational information about the subjects that are part of this "
-    "system, which are computer science courses: Data Structures & Algorithms, "
-    "Database Management Systems, Operating Systems, Computer Networks, Object "
-    "Oriented Programming (Java), Python Programming, Artificial Intelligence & "
-    "Machine Learning, Web Technologies, Cloud Computing, and Cyber Security "
-    "Essentials. You can give clear, helpful, learning-oriented explanations on "
-    "these topics.\n\n"
-    "RULES:\n"
-    "- Always stay helpful, warm, and concise (a few short sentences or a short list).\n"
-    "- If asked about anything unrelated to this app or these subjects, politely steer "
-    "the conversation back to the app and its subjects.\n"
-    "- You do not expose private student data or passwords; give general guidance only.\n"
-    "- Reply in the same language the user writes in."
+    "You are EDUtech AI, the assistant inside the EduCloude student information system. "
+    "Help with the app (QR class attendance, results, marks, timetables, roles) and explain the "
+    "computer science subjects taught here (DSA, DBMS, OS, Networks, Java, Python, AI/ML, Web, "
+    "Cloud, Cyber Security). "
+    "Keep answers short and clear. Never expose private student data. Answer in the user's language."
 )
 
 
@@ -58,7 +42,7 @@ def chat(payload: ChatPayload):
     # Drop the canned bot greeting and any blank history entries, trim leading
     # assistant turns, then merge duplicate consecutive roles.
     contents = []
-    for m in (payload.history or [])[-10:]:
+    for m in (payload.history or [])[-6:]:
         text = (m.get("text") or "").strip()
         if not text:
             continue
@@ -78,7 +62,13 @@ def chat(payload: ChatPayload):
     try:
         response = client.models.generate_content(
             model="gemini-3.6-flash",
-            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                max_output_tokens=500,
+                thinking_config=types.ThinkingConfig(
+                    thinking_level=types.ThinkingLevel.MINIMAL
+                ),
+            ),
             contents=merged,
         )
         text = (response.text or "").strip()
