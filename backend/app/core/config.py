@@ -22,6 +22,10 @@ class Config:
         for o in os.getenv("CORS_ORIGINS", "http://localhost:5173,http://localhost:3000").split(",")
         if o.strip()
     ]
+    # Any https origin hosted on Render is treated as a trusted frontend, so
+    # the app keeps working even when the frontend URL changes (random Render
+    # suffix) without needing a backend env-var edit.
+    CORS_ORIGIN_REGEX = os.getenv("CORS_ORIGIN_REGEX", r"https://[a-z0-9-]+\.onrender\.com")
     # Used to sign attendance QR tokens and credential-login sessions.
     # Set a stable value in production.
     SECRET_KEY = os.getenv("SECRET_KEY") or secrets.token_urlsafe(32)

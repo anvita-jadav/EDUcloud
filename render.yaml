@@ -23,7 +23,7 @@ services:
       # No trailing slash. Single app origin so browser logins are not blocked
       # by CORS.
       - key: CORS_ORIGINS
-        value: https://educloud-rssx.onrender.com
+        value: https://educloude-frontend.onrender.com
       - key: SECRET_KEY
         sync: false
       # Fixed admin account (username: EDU_project / password: EDUcloud@987)
