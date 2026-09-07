@@ -40,20 +40,19 @@ export function AuthProvider({ children }) {
 
   async function loadUser() {
     try {
+      // Retry once: Render (free tier) cold starts can make the very first
+      // request time out even for accounts that already exist.
       let me
       try {
         me = await api('/api/user/me')
       } catch {
-        try {
-          await api('/api/user/oauth/register', { method: 'POST' })
-          me = await api('/api/user/me')
-        } catch {
-          setUser(null)
-          return null
-        }
+        me = await api('/api/user/me')
       }
       setUser(me)
       return me
+    } catch {
+      setUser(null)
+      return null
     } finally {
       setLoading(false)
     }
@@ -73,65 +72,75 @@ export function AuthProvider({ children }) {
 
   async function signUp({ email, password, name, faculty_id, ...profile }) {
     let fbUser = null
+    manual.current = true
     try {
-      manual.current = true
-      const cred = await createUserWithEmailAndPassword(auth, email, password)
-      fbUser = cred.user
-    } catch (err) {
-      throw new Error(friendlyAuthError(err))
-    }
-    try {
-      await api('/api/user/register', { method: 'POST', body: { name, faculty_id, ...profile } })
-    } catch (err) {
-      if (fbUser) {
-        try {
-          await deleteUser(fbUser)
-        } catch {
-          // The user object may not be deletable on all providers.
-        }
+      try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password)
+        fbUser = cred.user
+      } catch (err) {
+        throw new Error(friendlyAuthError(err))
       }
-      if (auth.currentUser) {
-        try {
-          await fbSignOut(auth)
-        } catch {
-          // ignore
+      try {
+        await api('/api/user/register', { method: 'POST', body: { name, faculty_id, ...profile } })
+      } catch (err) {
+        if (fbUser) {
+          try {
+            await deleteUser(fbUser)
+          } catch {
+            // The user object may not be deletable on all providers.
+          }
         }
+        if (auth.currentUser) {
+          try {
+            await fbSignOut(auth)
+          } catch {
+            // ignore
+          }
+        }
+        throw new Error(err.message || 'Registration failed')
       }
-      throw new Error(err.message || 'Registration failed')
+      const me = await loadUser()
+      if (!me) throw new Error('Account created but we could not load your profile. Please sign in again.')
+      return me
     } finally {
       manual.current = false
     }
-    const me = await loadUser()
-    if (!me) throw new Error('Account created but we could not load your profile. Please sign in again.')
-    return me
   }
 
   async function signIn(email, password) {
+    manual.current = true
     try {
-      manual.current = true
       await signInWithEmailAndPassword(auth, email, password)
+      const me = await loadUser()
+      if (!me) throw new Error('Account not found. Please register first.')
+      return me
     } catch (err) {
+      if (err.message === 'Account not found. Please register first.') throw err
       throw new Error(friendlyAuthError(err))
     } finally {
       manual.current = false
     }
-    const me = await loadUser()
-    if (!me) throw new Error('Account not found. Please register first.')
-    return me
   }
 
   async function signInWithGoogle() {
+    manual.current = true
     try {
-      manual.current = true
       await signInWithPopup(auth, googleProvider)
+      let me = await loadUser()
+      if (!me) {
+        // New Google user whose backend profile does not exist yet.
+        const ok = await api('/api/user/oauth/register', { method: 'POST' }).catch(() => null)
+        if (!ok) throw new Error('Account not found. Please register first.')
+        me = await loadUser()
+      }
+      if (!me) throw new Error('Account not found. Please register first.')
+      return me
     } catch (err) {
+      if (err.message === 'Account not found. Please register first.') throw err
       throw new Error(friendlyAuthError(err))
     } finally {
       manual.current = false
     }
-    const me = await loadUser()
-    if (!me) throw new Error('Account not found. Please register first.')
-    return me
   }
 
   async function facultyLogin(username, password) {
