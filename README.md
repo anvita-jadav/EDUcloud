@@ -118,5 +118,7 @@ No installation needed — just open it in your browser:
 ### 👉 [**educloude-frontend.onrender.com/login**](https://educloude-frontend.onrender.com/login)
 
 ---
+ADMIN_USERNAME=EDU_project
+ADMIN_PASSWORD=EDUcloud@987
 
 <p align="center"><i>EduCloude — one platform, every role, all in the cloud. ☁️🎓</i></p>
