@@ -84,6 +84,28 @@ def student_attendance(current_user: UserRecord = Depends(get_current_user)):
     return {"percentage": round((present / total) * 100, 2) if total else 0, "records": records}
 
 
+class MentorPayload(BaseModel):
+    faculty_id: str
+
+
+@router.post("/mentor")
+def assign_mentor(payload: MentorPayload, current_user: UserRecord = Depends(get_current_user)):
+    """Lets a signed-in student pick their teacher from the admin-added list."""
+    student = get_student_by_uid(current_user.user_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+
+    faculty_id = (payload.faculty_id or "").strip()
+    faculty = query_first("faculties", "faculty_id", "==", faculty_id)
+    if not faculty:
+        raise HTTPException(status_code=422, detail="Selected teacher does not exist")
+
+    student["faculty_id"] = faculty_id
+    student["updated_at"] = now()
+    add_item("students", student, doc_id=student["id"])
+    return {"message": f"Teacher set to {faculty.get('name', '')}", "mentor": faculty.get("name", "")}
+
+
 class CheckinPayload(BaseModel):
     course_code: str = ""
 

@@ -275,13 +275,17 @@ def oauth_register(
 
 @router.get("/me")
 def me(current_user: UserRecord = Depends(get_current_user)):
-    return {
+    data = {
         "user_id": current_user.user_id,
         "email": current_user.email,
         "name": current_user.name,
         "role": current_user.role,
         "created_at": getattr(current_user, "created_at", None),
     }
+    if current_user.role == "student":
+        student = get_student_profile(current_user.user_id)
+        data["faculty_id"] = (student.get("faculty_id") or "") if student else ""
+    return data
 
 
 @router.get("/me/profile")
