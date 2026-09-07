@@ -48,21 +48,38 @@ def chat(payload: ChatPayload):
 
     try:
         from google import genai
+        from google.genai import types
         client = genai.Client(api_key=Config.GEMINI_API_KEY)
     except Exception:
         raise HTTPException(status_code=500, detail="Could not reach the AI service")
 
+    # Gemini enforces strict turn ordering: the conversation must start with a
+    # user message and roles must alternate (no empty or duplicate turns).
+    # Drop the canned bot greeting and any blank history entries, trim leading
+    # assistant turns, then merge duplicate consecutive roles.
     contents = []
     for m in (payload.history or [])[-10:]:
+        text = (m.get("text") or "").strip()
+        if not text:
+            continue
         role = "assistant" if m.get("from") == "bot" else "user"
-        contents.append({"role": role, "parts": [{"text": m.get("text", "")}]})
-    contents.append({"role": "user", "parts": [{"text": payload.message}]})
+        contents.append({"role": role, "parts": [{"text": text}]})
+
+    while contents and contents[0]["role"] == "assistant":
+        contents.pop(0)
+
+    merged = []
+    for turn in contents + [{"role": "user", "parts": [{"text": payload.message.strip()}]}]:
+        if merged and merged[-1]["role"] == turn["role"]:
+            merged[-1]["parts"][0]["text"] += "\n" + turn["parts"][0]["text"]
+        else:
+            merged.append(turn)
 
     try:
         response = client.models.generate_content(
             model="gemini-3.6-flash",
-            config={"system_instruction": SYSTEM_PROMPT},
-            contents=contents,
+            config=types.GenerateContentConfig(system_instruction=SYSTEM_PROMPT),
+            contents=merged,
         )
         text = (response.text or "").strip()
         if not text:
