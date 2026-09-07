@@ -115,20 +115,14 @@ class CheckinPayload(BaseModel):
     course_code: str = ""
 
 
-@router.post("/attendance/checkin")
-def qr_checkin(payload: CheckinPayload, current_user: UserRecord = Depends(get_current_user)):
-    student = get_student_by_uid(current_user.user_id)
-    if not student:
-        raise HTTPException(status_code=404, detail="Student profile not found")
-
-    course_code = (payload.course_code or "").strip()
-    if not course_code:
+def _decode_qr(course_code):
+    """Shared helper: resolve a scanned value to (session, course) or raise."""
+    from datetime import datetime as _dt
+    code = (course_code or "").strip()
+    if not code:
         raise HTTPException(status_code=422, detail="Course code is required")
 
-    # A valid signed QR embeds the course code and the class window; the
-    # student is only marked present while the class is running.
-    from datetime import datetime as _dt
-    session = verify_qr_token(course_code)
+    session = verify_qr_token(code)
     if session is not None:
         if session.get("expired"):
             if session.get("starts_at", 0) > int(_dt.now().timestamp()):
@@ -140,12 +134,39 @@ def qr_checkin(payload: CheckinPayload, current_user: UserRecord = Depends(get_c
                 status_code=400,
                 detail="This class session has ended — ask your faculty for a fresh QR",
             )
-        course_code = session["course_code"]
-    elif course_code == "manual":
+        code = session["course_code"]
+    elif code == "manual":
         raise HTTPException(status_code=422, detail="Invalid QR code")
-    course = query_first("courses", "code", "==", course_code)
+
+    course = query_first("courses", "code", "==", code)
     if not course:
         raise HTTPException(status_code=404, detail="Invalid course code / QR")
+    return session, course
+
+
+@router.post("/attendance/checkin/preview")
+def qr_checkin_preview(
+    payload: CheckinPayload,
+    current_user: UserRecord = Depends(get_current_user),
+):
+    """Show the course and class window from a scanned QR WITHOUT marking present."""
+    session, course = _decode_qr(payload.course_code)
+    return {
+        "course": {"id": course.get("course_id"), "code": course.get("code", ""),
+                   "name": course.get("name", "")},
+        "starts_at": session.get("starts_at") if session else None,
+        "ends_at": (session.get("starts_at") + session.get("duration")) if session else None,
+        "duration": session.get("duration") if session else None,
+    }
+
+
+@router.post("/attendance/checkin")
+def qr_checkin(payload: CheckinPayload, current_user: UserRecord = Depends(get_current_user)):
+    student = get_student_by_uid(current_user.user_id)
+    if not student:
+        raise HTTPException(status_code=404, detail="Student profile not found")
+
+    session, course = _decode_qr(payload.course_code)
 
     from datetime import date
     today = str(date.today())

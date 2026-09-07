@@ -10,6 +10,8 @@ export default function StudentAttendance() {
   const [toast, setToast] = useState('')
   const [toastType, setToastType] = useState('success')
   const [busy, setBusy] = useState(false)
+  const [pending, setPending] = useState('')
+  const [preview, setPreview] = useState(null)
 
   useEffect(() => {
     api('/api/student/attendance').then(setData).catch((e) => setError(e.message))
@@ -19,12 +21,31 @@ export default function StudentAttendance() {
     setScanner(false)
     setBusy(true)
     try {
-      const res = await api('/api/student/attendance/checkin', {
+      const info = await api('/api/student/attendance/checkin/preview', {
         method: 'POST',
         body: { course_code: result || '' },
       })
+      setPending(result)
+      setPreview(info)
+    } catch (e) {
+      setToastType('error')
+      setToast(e.message || 'Check-in failed')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function confirmCheckin() {
+    setBusy(true)
+    try {
+      const res = await api('/api/student/attendance/checkin', {
+        method: 'POST',
+        body: { course_code: pending },
+      })
       setToastType('success')
       setToast(res.message || 'Attendance marked successfully!')
+      setPending('')
+      setPreview(null)
       const fresh = await api('/api/student/attendance')
       setData(fresh)
     } catch (e) {
@@ -86,6 +107,50 @@ export default function StudentAttendance() {
       </div>
 
       {scanner && <QRScannerView onResult={handleScan} />}
+
+      {preview && (
+        <div className="card" style={{ marginBottom: 24, border: '2px solid var(--primary)', padding: 20 }}>
+          <h3 style={{ marginBottom: 4 }}>Class found — confirm your check-in</h3>
+          <p className="small muted" style={{ marginBottom: 16 }}>
+            Please verify the class details below before marking yourself present.
+          </p>
+          <div className="grid grid-2" style={{ marginBottom: 16 }}>
+            <div>
+              <p className="hero-eyebrow" style={{ marginTop: 0 }}>Course</p>
+              <p style={{ fontWeight: 700, fontSize: 18 }}>{preview.course?.name || '—'}</p>
+              <p className="small muted">{preview.course?.code || ''}</p>
+            </div>
+            <div>
+              <p className="hero-eyebrow" style={{ marginTop: 0 }}>Class date</p>
+              <p style={{ fontWeight: 700, fontSize: 18 }}>
+                {preview.starts_at ? new Date(preview.starts_at * 1000).toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : new Date().toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
+              <p className="small muted">
+                {preview.starts_at && preview.ends_at
+                  ? `${fmtClock(preview.starts_at)} – ${fmtClock(preview.ends_at)}`
+                  : 'Class time not specified in QR'}
+              </p>
+            </div>
+          </div>
+          {preview.duration && (
+            <p className="small" style={{ marginBottom: 16 }}>
+              Duration: <strong>{fmtDuration(preview.duration / 60)}</strong>
+            </p>
+          )}
+          <div className="space-x">
+            <button className="btn btn-primary" onClick={confirmCheckin} disabled={busy}>
+              {busy ? 'Checking in…' : '✔ Confirm check-in'}
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => { setPending(''); setPreview(null) }}
+              disabled={busy}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {!data && !error && <div className="center-screen"><div className="spinner" /></div>}
 

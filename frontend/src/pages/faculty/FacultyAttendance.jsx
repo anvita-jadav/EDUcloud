@@ -127,7 +127,7 @@ export default function FacultyAttendance() {
         method: 'POST',
         body: {
           course_id: qrCourse,
-          starts_at: qrStart,
+          starts_at: qrStart ? new Date(qrStart).toISOString() : new Date().toISOString(),
           duration_minutes: qrDuration,
         },
       })

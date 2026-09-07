@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from app.core.jwtutils import get_current_user, require_role
 from app.core.firestore_utils import (
@@ -48,7 +48,10 @@ def create_qr(payload: QRPayload, current_user: UserRecord = Depends(get_current
         try:
             parsed = datetime.fromisoformat(payload.starts_at.replace("Z", "+00:00"))
             if parsed.tzinfo is None:
-                parsed = parsed.replace(tzinfo=datetime.now().astimezone().tzinfo)
+                # Frontend always sends UTC (trailing Z). Naive strings fall
+                # back to UTC so a QR generated "now" is usable immediately
+                # regardless of the server's timezone.
+                parsed = parsed.replace(tzinfo=timezone.utc)
             start = int(parsed.timestamp())
         except ValueError:
             raise HTTPException(status_code=422, detail="Invalid start time format")
