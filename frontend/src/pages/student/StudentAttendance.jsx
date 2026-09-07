@@ -27,27 +27,37 @@ export default function StudentAttendance() {
       })
       setPending(result)
       setPreview(info)
-    } catch (e) {
-      setToastType('error')
-      setToast(e.message || 'Check-in failed')
+    } catch {
+      // Preview unavailable (stale backend, transient error): fall back to a
+      // direct check-in so a scan is never wasted and attendance is still marked.
+      try {
+        await doCheckin(result)
+      } catch (e) {
+        setToastType('error')
+        setToast(e.message || 'Check-in failed')
+      }
     } finally {
       setBusy(false)
     }
   }
 
+  async function doCheckin(code) {
+    const res = await api('/api/student/attendance/checkin', {
+      method: 'POST',
+      body: { course_code: code || pending },
+    })
+    setToastType('success')
+    setToast(res.message || 'Attendance marked successfully!')
+    setPending('')
+    setPreview(null)
+    const fresh = await api('/api/student/attendance')
+    setData(fresh)
+  }
+
   async function confirmCheckin() {
     setBusy(true)
     try {
-      const res = await api('/api/student/attendance/checkin', {
-        method: 'POST',
-        body: { course_code: pending },
-      })
-      setToastType('success')
-      setToast(res.message || 'Attendance marked successfully!')
-      setPending('')
-      setPreview(null)
-      const fresh = await api('/api/student/attendance')
-      setData(fresh)
+      await doCheckin(pending)
     } catch (e) {
       setToastType('error')
       setToast(e.message || 'Check-in failed')

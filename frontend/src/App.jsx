@@ -16,6 +16,7 @@ import AdminFaculty from './pages/admin/AdminFaculty'
 import AdminCourses from './pages/admin/AdminCourses'
 import AdminTimetable from './pages/admin/AdminTimetable'
 import AdminReports from './pages/admin/AdminReports'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function Protected({ children, role }) {
   const { user, loading } = useAuth()
@@ -47,7 +48,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
+        <ErrorBoundary>
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/" element={<RoleHome />} />
@@ -75,7 +77,8 @@ export default function App() {
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+          </Routes>
+        </ErrorBoundary>
       </AuthProvider>
     </BrowserRouter>
   )
