@@ -76,7 +76,12 @@ def student_attendance(current_user: UserRecord = Depends(get_current_user)):
     rows = query_items("attendances", "student_id", "==", student["student_id"])
     records = [
         {"date": a.get("date"), "status": a.get("status"), "method": a.get("method"),
-         "course": course_map.get(a.get("course_id"), {}).get("name", "")}
+         "course": course_map.get(a.get("course_id"), {}).get("name", ""),
+         "session_start": a.get("session_start"),
+         "session_end": a.get("session_end"),
+         "session_duration": a.get("session_duration"),
+         "checked_in_at": a.get("checked_in_at"),
+        }
         for a in rows
     ]
     total = len(records)
@@ -163,6 +168,8 @@ def qr_checkin(payload: CheckinPayload, current_user: UserRecord = Depends(get_c
         "status": "present",
         "method": "qr",
         "session_start": session.get("starts_at") if session else None,
+        "session_end": (session.get("starts_at") + session.get("duration")) if session else None,
+        "session_duration": session.get("duration") if session else None,
         "checked_in_at": now(),
         "created_at": now(),
     })

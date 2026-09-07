@@ -39,6 +39,25 @@ export default function StudentAttendance() {
   const present = records.filter((r) => r.status === 'present').length
   const todayCount = records.filter((r) => r.date === new Date().toISOString().slice(0, 10)).length
 
+  function fmtClock(ts) {
+    if (!ts) return '—'
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function fmtDuration(min) {
+    if (!min) return '—'
+    const m = Math.floor(min / 60)
+    const s = min % 60
+    return m ? `${m}h ${s}m` : `${min} min`
+  }
+
+  function fmtDateTime(v) {
+    if (!v) return '—'
+    const d = new Date(v)
+    if (isNaN(d.getTime())) return String(v)
+    return d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  }
+
   return (
     <div>
       <div className="page-head">
@@ -96,13 +115,28 @@ export default function StudentAttendance() {
               <div className="table-wrap">
                 <table className="table">
                   <thead>
-                    <tr><th>Date</th><th>Course</th><th>Status</th><th>Method</th></tr>
+                    <tr>
+                      <th>Date</th>
+                      <th>Course</th>
+                      <th>Class time</th>
+                      <th>Duration</th>
+                      <th>Checked in</th>
+                      <th>Status</th>
+                      <th>Method</th>
+                    </tr>
                   </thead>
                   <tbody>
                     {records.map((r, i) => (
                       <tr key={i}>
                         <td>{r.date}</td>
                         <td>{r.course}</td>
+                        <td>
+                          {r.method === 'qr'
+                            ? `${fmtClock(r.session_start)} – ${fmtClock(r.session_end)}`
+                            : '—'}
+                        </td>
+                        <td>{r.method === 'qr' ? fmtDuration(r.session_duration) : '—'}</td>
+                        <td>{r.method === 'qr' ? fmtDateTime(r.checked_in_at) : '—'}</td>
                         <td>
                           <span className={`badge ${r.status === 'present' ? 'badge-present' : 'badge-absent'}`}>
                             {r.status}

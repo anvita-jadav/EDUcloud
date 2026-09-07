@@ -54,6 +54,10 @@ export default function FacultyAttendance() {
   const [selected, setSelected] = useState({})
   const [busy, setBusy] = useState(false)
   const [toast, setToast] = useState('')
+  const [logCourse, setLogCourse] = useState('')
+  const [logDate, setLogDate] = useState('')
+  const [log, setLog] = useState(null)
+  const [logBusy, setLogBusy] = useState(false)
 
   useEffect(() => {
     api('/api/faculty/dashboard').then(setDash).catch((e) => setError(e.message))
@@ -137,6 +141,47 @@ export default function FacultyAttendance() {
   }
 
   const courses = dash?.courses || []
+
+  async function loadQrLog(e) {
+    e?.preventDefault()
+    if (!logCourse) {
+      setToast('Select a course first')
+      return
+    }
+    setLogBusy(true)
+    setLog(null)
+    try {
+      const q = new URLSearchParams()
+      if (logDate) q.set('date', logDate)
+      const res = await api(`/api/faculty/attendance/qr-present/${logCourse}?${q.toString()}`)
+      setLog(res)
+      setToast(res.total_present
+        ? `${res.total_present} student(s) present for ${res.course?.name}`
+        : 'No students were marked present for this class yet.')
+    } catch (err) {
+      setToast(err.message || 'Could not load attendance')
+    } finally {
+      setLogBusy(false)
+    }
+  }
+
+  function fmtDT(v) {
+    if (!v) return '—'
+    const d = new Date(v)
+    return isNaN(d.getTime()) ? String(v) : d.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
+  }
+
+  function fmtClock(ts) {
+    if (!ts) return '—'
+    return new Date(ts * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  }
+
+  function fmtDuration(min) {
+    if (!min) return '—'
+    const m = Math.floor(min / 60)
+    const s = min % 60
+    return m ? `${m}h ${s}m` : `${min} min`
+  }
 
   return (
     <div>
@@ -259,6 +304,87 @@ export default function FacultyAttendance() {
             </div>
           )}
         </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: 24 }}>
+        <h3 style={{ marginBottom: 4 }}>Students Present via QR</h3>
+        <p className="small muted" style={{ marginBottom: 16 }}>
+          See which students scanned your class QR — with their details and the class date &amp; time.
+        </p>
+        <form className="form-row" onSubmit={loadQrLog} style={{ alignItems: 'flex-end' }}>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>Course</label>
+            <select value={logCourse} onChange={(e) => { setLogCourse(e.target.value); setLog(null) }}>
+              <option value="">Select course…</option>
+              {courses.map((c) => (
+                <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+              ))}
+            </select>
+          </div>
+          <div className="form-group" style={{ flex: 1 }}>
+            <label>Date (optional)</label>
+            <input type="date" value={logDate} onChange={(e) => { setLogDate(e.target.value); setLog(null) }} />
+          </div>
+          <button className="btn btn-primary" disabled={logBusy || !logCourse}>
+            {logBusy ? 'Loading…' : 'Show present students'}
+          </button>
+        </form>
+
+        {log && (
+          <>
+            {log.total_present ? (
+              <>
+                <p className="small" style={{ margin: '16px 0 8px' }}>
+                  <strong>{log.total_present}</strong> student{log.total_present === 1 ? '' : 's'} present
+                  {logDate ? ` on ${logDate}` : ' (all dates)'} for <strong>{log.course?.name}</strong>
+                </p>
+                <div className="table-wrap">
+                  <table className="table">
+                    <thead>
+                      <tr>
+                        <th>Roll</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Department</th>
+                        <th>Sem</th>
+                        <th>Date</th>
+                        <th>Class time</th>
+                        <th>Duration</th>
+                        <th>Checked in</th>
+                        <th>Method</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {log.students.map((s, i) => (
+                        <tr key={i}>
+                          <td>{s.roll_number || '—'}</td>
+                          <td><strong>{s.name || '—'}</strong></td>
+                          <td>{s.email || '—'}</td>
+                          <td>{s.department || '—'}</td>
+                          <td>{s.semester || '—'}</td>
+                          <td>{s.date || '—'}</td>
+                          <td>
+                            {s.method === 'qr'
+                              ? `${fmtClock(s.session_start)} – ${fmtClock(s.session_end)}`
+                              : '—'}
+                          </td>
+                          <td>{s.method === 'qr' ? fmtDuration(s.session_duration) : '—'}</td>
+                          <td>{s.method === 'qr' ? fmtDT(s.checked_in_at) : '—'}</td>
+                          <td>{s.method === 'qr' ? 'QR' : 'Manual'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            ) : (
+              <p className="empty" style={{ marginTop: 16 }}>
+                No students present.{' '}
+                {logDate ? 'Try a different date or clear it to see all records.' : 'Set up a QR class and wait for students to scan it.'}
+              </p>
+            )}
+          </>
+        )}
       </div>
 
       {toast && <Toast type="success" message={toast} onClose={() => setToast('')} />}

@@ -138,6 +138,50 @@ def mark_attendance(payload: MarkAttendancePayload, current_user: UserRecord = D
     return {"message": f"Marked {count} students present", "date": att_date}
 
 
+@router.get("/attendance/qr-present/{course_id}")
+def qr_attendance(course_id: str, date: str = "", current_user: UserRecord = Depends(get_current_user)):
+    """Students who scanned the teacher's QR for a course (optionally a date).
+    Returns their full profile plus the class window and their check-in time."""
+    course = query_first("courses", "course_id", "==", course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+
+    students = {
+        s.get("student_id"): s for s in list_collection("students")
+    }
+    rows = query_items("attendances", "course_id", "==", course_id)
+    if date:
+        rows = [a for a in rows if a.get("date") == date]
+
+    present = []
+    for a in rows:
+        if a.get("status") != "present":
+            continue
+        st = students.get(a.get("student_id")) or {}
+        present.append({
+            "student_id": st.get("student_id"),
+            "name": st.get("name", ""),
+            "email": st.get("email", ""),
+            "roll_number": st.get("roll_number", ""),
+            "department": st.get("department", ""),
+            "semester": st.get("semester", ""),
+            "date": a.get("date"),
+            "method": a.get("method", ""),
+            "session_start": a.get("session_start"),
+            "session_end": a.get("session_end"),
+            "session_duration": a.get("session_duration"),
+            "checked_in_at": a.get("checked_in_at"),
+        })
+    present.sort(key=lambda p: p.get("checked_in_at") or "", reverse=True)
+
+    return {
+        "course": {"id": course.get("course_id"), "code": course.get("code"),
+                   "name": course.get("name", "")},
+        "total_present": len(present),
+        "students": present,
+    }
+
+
 @router.get("/students")
 def list_students(current_user: UserRecord = Depends(get_current_user)):
     faculty = _faculty_by_uid(current_user.user_id)
